@@ -108,11 +108,13 @@ export function DeviceTable({ selectedDeviceId, onSelectDevice }: DeviceTablePro
         <input
           type="text"
           placeholder="Search hostname..."
+          aria-label="Search hostname"
           value={search}
           onChange={(e) => updateSearch(e.target.value)}
           className="rounded border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
         <select
+          aria-label="Filter by status"
           value={status}
           onChange={(e) => updateStatus(e.target.value as DeviceStatus | 'all')}
           className="rounded border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
