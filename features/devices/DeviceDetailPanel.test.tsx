@@ -40,6 +40,46 @@ async function renderLoadedPage() {
   return { rows: () => screen.getAllByRole('row').slice(1), firstRow };
 }
 
+describe('device detail panel focus', () => {
+  it('moves focus into the panel on open and back to the row on close', async () => {
+    const user = userEvent.setup();
+    const { rows } = await renderLoadedPage();
+    const rowButton = within(rows()[0]).getByRole('button');
+
+    await user.click(rowButton);
+    const panel = await screen.findByRole('dialog', { name: 'Device Detail' });
+    expect(panel).toHaveFocus();
+
+    await user.click(within(panel).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(rowButton).toHaveFocus();
+  });
+
+  it('closes on Escape and still returns focus to the row', async () => {
+    const user = userEvent.setup();
+    const { rows } = await renderLoadedPage();
+    const rowButton = within(rows()[1]).getByRole('button');
+
+    await user.click(rowButton);
+    await screen.findByRole('dialog', { name: 'Device Detail' });
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(rowButton).toHaveFocus();
+  });
+
+  it('opens from the keyboard and lands focus inside the panel', async () => {
+    const user = userEvent.setup();
+    const { rows } = await renderLoadedPage();
+    const rowButton = within(rows()[0]).getByRole('button');
+
+    rowButton.focus();
+    await user.keyboard('{Enter}');
+
+    expect(await screen.findByRole('dialog', { name: 'Device Detail' })).toHaveFocus();
+  });
+});
+
 describe('device alert history (selection-gated query)', () => {
   it('is not requested until a device is selected', async () => {
     const requests = recordRequests();
@@ -55,7 +95,7 @@ describe('device alert history (selection-gated query)', () => {
     await waitFor(() => expect(requests.matching(DEVICE_DETAIL)).toHaveLength(1));
     expect(requests.matching(ALERT_HISTORY)).toHaveLength(0);
 
-    await user.click(rows()[0]);
+    await user.click(within(rows()[0]).getByRole('button'));
 
     expect(await screen.findByRole('heading', { name: 'Alert History' })).toBeInTheDocument();
     await waitFor(() =>
@@ -70,12 +110,12 @@ describe('device alert history (selection-gated query)', () => {
     const { rows } = await renderLoadedPage();
     const [firstId, secondId] = [idOfRow(rows()[0]), idOfRow(rows()[1])];
 
-    await user.click(rows()[0]);
+    await user.click(within(rows()[0]).getByRole('button'));
     await screen.findByRole('heading', { name: 'Alert History' });
     await user.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('heading', { name: 'Alert History' })).not.toBeInTheDocument();
 
-    await user.click(rows()[1]);
+    await user.click(within(rows()[1]).getByRole('button'));
     await screen.findByRole('heading', { name: 'Alert History' });
     await waitFor(() => expect(requests.matching(ALERT_HISTORY)).toHaveLength(2));
 

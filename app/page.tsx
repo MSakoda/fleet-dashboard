@@ -10,10 +10,10 @@ export default function Home() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 bg-zinc-50 p-8 dark:bg-black lg:flex-row">
-      <div className="flex flex-1 flex-col gap-6">
+      <main className="flex flex-1 flex-col gap-6">
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Endpoint Fleet Dashboard</h1>
         <DeviceTable selectedDeviceId={selectedDeviceId} onSelectDevice={setSelectedDeviceId} />
-      </div>
+      </main>
       <aside className="w-full shrink-0 lg:w-80">
         <AlertFeed />
       </aside>

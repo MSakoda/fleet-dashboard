@@ -54,6 +54,8 @@ describe('AlertFeed optimistic acknowledge', () => {
 
     // The request is still held open, yet the UI and cache already changed.
     expect(await screen.findByText(`${FEED_SIZE - 1} unacknowledged`)).toBeInTheDocument();
+    // Acknowledging changes a flag, not the set of alerts, so nothing is announced.
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
     expect(state.responded).toBe(false);
     expect(cachedAlerts(view)[0].acknowledged).toBe(true);
     expect(within(view.firstAlert).getByRole('button', { name: 'saving...' })).toBeDisabled();

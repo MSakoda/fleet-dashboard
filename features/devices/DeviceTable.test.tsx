@@ -11,8 +11,8 @@ import { DeviceTable } from './DeviceTable';
 
 const PAGE_SIZE = 20;
 
-function renderTable() {
-  return renderWithClient(<DeviceTable selectedDeviceId={null} onSelectDevice={vi.fn()} />);
+function renderTable(onSelectDevice = vi.fn()) {
+  return renderWithClient(<DeviceTable selectedDeviceId={null} onSelectDevice={onSelectDevice} />);
 }
 
 // Data rows only: skeleton rows and the "No devices match" row have no
@@ -35,6 +35,51 @@ async function waitForRows() {
 }
 
 describe('DeviceTable', () => {
+  it('labels its filters visibly and marks the sorted column with aria-sort', async () => {
+    renderTable();
+    await waitForRows();
+
+    // Real <label> elements, so the text is on screen, not just in the a11y tree.
+    expect(screen.getByLabelText('Search hostname')).toBeVisible();
+    expect(screen.getByLabelText('Status')).toBeVisible();
+
+    expect(screen.getByRole('columnheader', { name: 'Hostname' })).toHaveAttribute('aria-sort', 'ascending');
+    expect(screen.getByRole('columnheader', { name: 'CPU %' })).not.toHaveAttribute('aria-sort');
+  });
+
+  it('sorts and selects with the keyboard alone', async () => {
+    const onSelectDevice = vi.fn();
+    const user = userEvent.setup();
+    renderTable(onSelectDevice);
+    await waitForRows();
+
+    // Tab order: search, status, then the sortable headers left to right.
+    // Headers and rows are real buttons, reachable by Tab and activated by Enter.
+    await user.tab();
+    expect(screen.getByLabelText('Search hostname')).toHaveFocus();
+    await user.tab();
+    expect(screen.getByLabelText('Status')).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: /Hostname/ })).toHaveFocus();
+    await user.tab(); // OS
+    await user.tab(); // Status
+    await user.tab(); // CPU %
+    expect(screen.getByRole('button', { name: /CPU %/ })).toHaveFocus();
+    await user.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(screen.getByRole('columnheader', { name: 'CPU %' })).toHaveAttribute('aria-sort', 'ascending'),
+    );
+    expect(screen.getByRole('columnheader', { name: 'Hostname' })).not.toHaveAttribute('aria-sort');
+
+    const firstRowButton = within(dataRows()[0]).getByRole('button');
+    firstRowButton.focus();
+    await user.keyboard('{Enter}');
+    expect(onSelectDevice).toHaveBeenCalledTimes(1);
+    expect(onSelectDevice).toHaveBeenCalledWith(
+      getDeviceStore().find((d) => d.hostname === firstRowButton.textContent)!.id,
+    );
+  });
+
   it('filtering by status replaces the rows with only matching devices', async () => {
     const user = userEvent.setup();
     renderTable();
@@ -44,7 +89,7 @@ describe('DeviceTable', () => {
     const offlineCount = getDeviceStore().filter((d) => d.status === 'offline').length;
     expect(offlineCount).toBeGreaterThan(0);
 
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Filter by status' }), 'offline');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'offline');
 
     await waitFor(() =>
       expect(screen.getByText(new RegExp(`${offlineCount} devices total`))).toBeInTheDocument(),
@@ -67,11 +112,11 @@ describe('DeviceTable', () => {
     const descending = [...all].reverse().slice(0, PAGE_SIZE);
     expect(hostnames()).toEqual(ascending);
 
-    await user.click(screen.getByRole('columnheader', { name: /Hostname/ }));
+    await user.click(screen.getByRole('button', { name: /Hostname/ }));
     await waitFor(() => expect(hostnames()).toEqual(descending));
-    expect(screen.getByRole('columnheader', { name: /Hostname ▼/ })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Hostname' })).toHaveAttribute('aria-sort', 'descending');
 
-    await user.click(screen.getByRole('columnheader', { name: /Hostname/ }));
+    await user.click(screen.getByRole('button', { name: /Hostname/ }));
     await waitFor(() => expect(hostnames()).toEqual(ascending));
   });
 
@@ -80,8 +125,10 @@ describe('DeviceTable', () => {
     renderTable();
     await waitForRows();
 
-    await user.click(screen.getByRole('columnheader', { name: /CPU %/ }));
-    await waitFor(() => expect(screen.getByRole('columnheader', { name: /CPU % ▲/ })).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /CPU %/ }));
+    await waitFor(() =>
+      expect(screen.getByRole('columnheader', { name: 'CPU %' })).toHaveAttribute('aria-sort', 'ascending'),
+    );
     await waitFor(() => {
       const cpu = columnValues(3).map((v) => parseInt(v, 10));
       expect(cpu).toEqual([...cpu].sort((a, b) => a - b));
@@ -133,7 +180,7 @@ describe('DeviceTable', () => {
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await waitFor(() => expect(screen.getByText(/Page 2 of/)).toBeInTheDocument());
 
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Filter by status' }), 'offline');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'offline');
     await waitFor(() => expect(screen.getByText(/Page 1 of/)).toBeInTheDocument());
   });
 });

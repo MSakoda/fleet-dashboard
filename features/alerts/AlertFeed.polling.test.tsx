@@ -57,6 +57,8 @@ describe('AlertFeed polling', () => {
 
     const view = renderWithClient(<AlertFeed />);
     await screen.findByText(`${FEED_SIZE} unacknowledged`);
+    // The first load is not "new": nothing is announced for existing alerts.
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
     // Two hooks observe ['alerts'] but share one in-flight fetch.
     expect(polls.calls).toBe(1);
     expect(screen.queryByText('Brand new alert from a poll')).not.toBeInTheDocument();
@@ -66,8 +68,12 @@ describe('AlertFeed polling', () => {
     expect(polls.calls).toBe(1);
 
     await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
-    expect(await screen.findByText('Brand new alert from a poll')).toBeInTheDocument();
+    expect(await screen.findByText('Brand new alert from a poll', { selector: 'p' })).toBeInTheDocument();
     expect(polls.calls).toBe(2);
+    // Only the new alert is announced, in a polite live region, not the whole list.
+    const announcement = screen.getByRole('status');
+    expect(announcement).toHaveAttribute('aria-live', 'polite');
+    expect(announcement).toHaveTextContent(/^New alert: (critical|warning|info), Brand new alert from a poll on .+, at /);
     expect(view.queryClient.getQueryData<AlertListResponse>(['alerts'])!.alerts[0].id).toBe('alert-from-poll');
 
     await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);

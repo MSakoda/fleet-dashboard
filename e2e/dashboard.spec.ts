@@ -40,7 +40,7 @@ test('filter and page the device table', async ({ page }) => {
   expect(pageTwo.filter((name) => pageOne.includes(name))).toEqual([]);
 
   // Filtering from page 2 starts over at page 1 and shows only matching rows.
-  await page.getByLabel('Filter by status').selectOption('offline');
+  await page.getByLabel('Status').selectOption('offline');
   await expect(page.getByText(/^Page 1 of/)).toBeVisible();
   await expect.poll(async () => {
     const found = await statuses(page);
@@ -60,7 +60,7 @@ test('open a device and see its alert history load', async ({ page, request }) =
   await expect(page.getByText(/^Page 1 of 1 \(1 devices total\)/)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Alert History' })).toBeHidden();
 
-  await page.getByRole('row', { name: new RegExp(hostname) }).click();
+  await page.getByRole('button', { name: hostname }).click();
 
   await expect(page.getByRole('heading', { name: 'Device Detail' })).toBeVisible();
   await expect(page.getByRole('definition').filter({ hasText: hostname })).toBeVisible();

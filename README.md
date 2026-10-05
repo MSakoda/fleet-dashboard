@@ -108,11 +108,34 @@ When a test needs to stand inside a timing window, it holds a response open with
 - Search for a device that has alerts, open it, and watch its alert history load.
 - Turn on "simulate failures", acknowledge an alert, see the optimistic update, then the rollback and error once the 500 lands.
 
+`e2e/accessibility.spec.ts` runs axe (`@axe-core/playwright`, every rule) over the dashboard and fails on any violation, so an accessibility regression turns CI red. It covers the loaded page, the page with a device panel open, and the page after a failed acknowledge with its error showing, in light mode, dark mode and a mobile viewport. Failures list each rule, the element and what to change. It starts from zero violations, so it is a gate, not a baseline.
+
+Not covered by that gate: an acknowledged alert (shown at reduced opacity, which can lower contrast), the device table's error and empty states, and anything axe can't judge automatically, like whether focus order and screen reader announcements actually make sense.
+
 These run against the real fake backend with its real latency and drift, so they assert shape (every row is offline, the count goes down by one and comes back) and never exact counts. Run `npm run test:e2e` separately from `npm test`; Vitest excludes `e2e/`.
 
 ### Why this line
 
 The tests target the behavior TanStack Query is responsible for: what is cached, when a request is made, what the UI shows while one is pending, and what happens when it fails. Those are the places a regression is quiet, because the page still renders. Pure markup, constants and fake-backend internals are left alone, since asserting them mostly restates the code. Browser-level concerns go to the small Playwright layer instead of being forced into jsdom.
+
+## Accessibility and performance, before and after
+
+| Metric | Before | After |
+|---|---|---|
+| Lighthouse accessibility | 94 | **100** |
+| axe violations, page loaded (desktop) | 3 rules / 9 nodes | **0** |
+| axe violations, device panel open | 4 rules / 16 nodes | **0** |
+| axe violations, mobile viewport | 4 rules / 10 nodes | **0** |
+| Lighthouse performance | 92 (runs: 92, 93, 77) | 93 (runs: 93, 93, 77) |
+| LCP | 2.4 s | 2.4 s |
+| INP (lab estimate) | 40 ms | 40 ms |
+| CLS | 0.137 (runs: 0.137 to 0.482) | 0.129 (runs: 0.129 to 0.451) |
+
+Accessibility is the change. Performance is **not** improved: the differences above are within run-to-run noise, and the work here did not target it. The layout shift in the alert sidebar that makes CLS jump on some runs (and drops the performance score to 77 on those) is untouched, as is the 2.4 s LCP.
+
+Method: Lighthouse 13.5.0, mobile, three runs, median reported. axe-core through `@axe-core/playwright` with every rule, on a production build. INP is a scripted lab measurement (Pixel 7 emulation, 4x CPU slowdown), not a Lighthouse value. "Before" is commit `61d89a3`; "after" is the working tree with the accessibility fixes (full method and caveats in `docs/accessibility-performance-baseline.md`). All local, single machine.
+
+What changed: row selection and column sorting use real buttons with `aria-sort`; filters have visible labels; the device panel is a dialog that takes focus and returns it to the row; new alerts are announced in a polite live region; the page has a `<main>` landmark; empty-state text is no longer inside a `<ul>`; secondary and error text was darkened to meet 4.5:1. axe still lists one "needs review" item, the ▲/▼ sort glyph (a non-text character it can't judge, and it is `aria-hidden`).
 
 ## What's not built
 
